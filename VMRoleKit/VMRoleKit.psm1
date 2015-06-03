@@ -73,29 +73,3 @@ function Get-VMRoleResourceDefinition {
 }
 #Get-VMRoleResourceDefinition -Verbose -ResourceDefinitionPackagePath .\import\RABO_PROD_W2012R2_DEV_1001.resdefpkg -IncludeViewDefinition
 #dir .\import -File | Get-VMRoleResourceDefinition -IncludeViewDefinition -Verbose
-
-
-function Find-CloudResourceExtensionDependency {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory,
-                   ValueFromPipelineByPropertyName)]
-        [ValidateNotNull()]
-        [ValidateNotNullOrEmpty()]  
-        [String] $Name,
-
-        [Parameter(Mandatory,
-                   ValueFromPipelineByPropertyName)]
-        [String] $Version
-    )
-
-    Process {
-        Get-CloudResource | %{
-            if ($_.ResourceDefinition.ResourceExtensionReferences.ReferenceName -eq $Name -and $_.ResourceDefinition.ResourceExtensionReferences.Version -eq $Version) {
-                $_
-            }
-        }
-    }
-}
-#Get-CloudResourceExtension -Name RABO_W2012R2_BASE -Version 1.0.0.1 | Find-CloudResourceExtensionDependency
-#Get-CloudResourceExtension | Find-CloudResourceExtensionDependency
