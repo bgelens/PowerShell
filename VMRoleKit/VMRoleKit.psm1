@@ -9,7 +9,7 @@ function Get-VMRoleResourceDefinition {
         [ValidateNotNull()]
         [ValidateNotNullOrEmpty()]
         [ValidateScript({
-            if (Test-Path -Path $_.fullname){
+            if (Test-Path -Path $_.fullname) {
                 $true
             }
             elseif ($_ -like '.\*') {
@@ -153,13 +153,76 @@ function Get-VMRoleViewDefinition {
 #dir .\import -File | Get-VMRoleViewDefinition -Verbose -IncludeJSON
 
 function New-VMRoleResDefPKG {
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName='Windows')]
     param (
-        
+        [Parameter(Mandatory)]
+        [String] $Name,
+
+        [Parameter(Mandatory)]
+        [String] $Destination
     )
+    #this function will merge all files and creates a ResDefPKG
+    Process {
+        $TempDir = [System.IO.Path]::GetTempPath()
+        $TempSkeletonDir = $TempDir + $Name
+        New-Item -Path $TempDir -Name $Name -ItemType Directory -Force | Out-Null
+
+    }
 }
 
-#Helper function for pre WMF5
+function New-VMRoleIntrinsicSettings {
+    param (
+        [Parameter(Mandatory)]
+        $HardwareProfile,
+
+        [Parameter(Mandatory)]
+        $NetworkProfile,
+
+        [Parameter(Mandatory)]
+        $OperatingSystemProfile,
+
+        [Parameter(Mandatory)]
+        $ScaleOutSettings,
+
+        [Parameter(Mandatory)]
+        $StorageProfile
+    )
+    #this function will generate the intrinsicsettings part of the resdef json
+}
+
+function New-VMRoleHardWareProfile {
+
+}
+
+function New-VMRoleNetworkProfile {
+
+}
+
+function New-VMRoleOperatingSystemProfile {
+    [CmdletBinding(DefaultParameterSetName='Windows')]
+    param (
+        [Parameter(ParameterSetName='Windows')]
+        [Switch] $Windows,
+
+        [Parameter(ParameterSetName='Linux')]
+        [Switch] $Linux
+    )
+
+    switch ($PSCmdlet.ParameterSetName) {
+            'Windows' {}
+            'Linux' {}
+    }
+}
+
+function New-VMRoleScaleOutSettings {
+
+}
+
+function New-VMRoleStorageProfile {
+
+}
+
+#Helper functions for pre WMF5
 function Expand-Archive {
     param (
         [String] $Path,
@@ -169,6 +232,15 @@ function Expand-Archive {
 
     Write-Verbose -Message "Expanding $Path into $ExpandDir"
     [io.compression.zipfile]::ExtractToDirectory($Path, $ExpandDir)
+}
+
+function New-Archive {
+    param (
+        [String] $Path,
+
+        [String] $Destination
+    )
+    [io.compression.zipfile]::CreateFromDirectory($Path, $Destination)    
 }
 
 Export-ModuleMember -Function *-VMRole*
