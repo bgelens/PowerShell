@@ -215,7 +215,19 @@ function New-VMRoleOperatingSystemProfile {
 }
 
 function New-VMRoleScaleOutSettings {
+    param (
+        [Parameter(Mandatory)]
+        $InitialInstanceCount,
 
+        [Parameter(Mandatory)]
+        $MaximumInstanceCount,
+
+        [Parameter(Mandatory)]
+        $MinimumInstanceCount,
+
+        [Parameter(Mandatory)]
+        $UpgradeDomainCount
+    )
 }
 
 function New-VMRoleStorageProfile {
