@@ -17,7 +17,9 @@ function Get-VMRoleResourceDefinition {
             }
             
         })]
-        [System.io.FileInfo] $ResourceDefinitionPackagePath
+        [System.io.FileInfo] $ResourceDefinitionPackagePath,
+
+        [Switch] $IncludeJSON
     )
     Begin {
         
@@ -47,7 +49,11 @@ function Get-VMRoleResourceDefinition {
             Expand-Archive -Path $Path -ExpandDir $ExpandDir
 
             Write-Verbose -Message 'Finding ResDef file and converting JSON to PSObject'
-            $ResDef = Get-ChildItem *.resdef -Path $ExpandDir | Get-Content | Out-String | ConvertFrom-Json
+            $ResDefJSON = Get-ChildItem *.resdef -Path $ExpandDir | Get-Content | Out-String
+            $ResDef = $ResDefJSON | ConvertFrom-Json
+            if ($IncludeJSON) {
+                Add-Member -InputObject $ResDef -MemberType NoteProperty -Name 'JSON' -Value $ResDefJSON -Force
+            }
 
             Write-Verbose -Message "Removing expand directory: $ExpandDir"
             Remove-Item $ExpandDir -Force -Recurse
@@ -69,7 +75,7 @@ function Get-VMRoleResourceDefinition {
     }
 }
 #Get-VMRoleResourceDefinition -Verbose -ResourceDefinitionPackagePath .\import\RABO_PROD_W2012R2_DEV_1001.resdefpkg
-#dir .\import -File | Get-VMRoleResourceDefinition -Verbose
+#dir .\import -File | Get-VMRoleResourceDefinition -Verbose -IncludeJSON
 
 function Get-VMRoleViewDefinition {
     [CmdletBinding()]
@@ -88,7 +94,9 @@ function Get-VMRoleViewDefinition {
             }
             
         })]
-        [System.io.FileInfo] $ResourceDefinitionPackagePath
+        [System.io.FileInfo] $ResourceDefinitionPackagePath,
+
+        [Switch] $IncludeJSON
     )
     Begin {
 
@@ -118,7 +126,11 @@ function Get-VMRoleViewDefinition {
             Expand-Archive -Path $Path -ExpandDir $ExpandDir
 
             Write-Verbose -Message 'Finding ViewDef file and converting JSON to PSObject'
-            $ViewDef = Get-ChildItem *.viewdef -Path $ExpandDir | Get-Content | Out-String | ConvertFrom-Json
+            $ViewDefJSON = Get-ChildItem *.viewdef -Path $ExpandDir | Get-Content | Out-String
+            $ViewDef = $ViewDefJSON | ConvertFrom-Json
+            if ($IncludeJSON) {
+                Add-Member -InputObject $ViewDef -MemberType NoteProperty -Name 'JSON' -Value $ViewDefJSON -Force
+            }
 
             Write-Output -InputObject $ViewDef
         }
@@ -138,7 +150,14 @@ function Get-VMRoleViewDefinition {
 
 }
 #Get-VMRoleViewDefinition -Verbose -ResourceDefinitionPackagePath .\import\RABO_PROD_W2012R2_DEV_1001.resdefpkg
-#dir .\import -File | Get-VMRoleViewDefinition -Verbose
+#dir .\import -File | Get-VMRoleViewDefinition -Verbose -IncludeJSON
+
+function New-VMRoleResDefPKG {
+    [CmdletBinding()]
+    param (
+        
+    )
+}
 
 #Helper function for pre WMF5
 function Expand-Archive {
