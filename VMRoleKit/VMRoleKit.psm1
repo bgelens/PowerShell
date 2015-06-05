@@ -1,4 +1,12 @@
 Add-Type -AssemblyName 'system.io.compression.filesystem'
+Add-Type -Language CSharp @"
+public class VMRoleScaleOutSettings{
+    public string InitialInstanceCount;
+    public string MaximumInstanceCount;
+    public string MinimumInstanceCount;
+    public string UpgradeDomainCount;
+}
+"@
 
 function Get-VMRoleResourceDefinition {
     [CmdletBinding()]
@@ -188,6 +196,7 @@ function New-VMRoleIntrinsicSettings {
         $StorageProfile
     )
     #this function will generate the intrinsicsettings part of the resdef json
+    Write-Output -InputObject $ScaleOutSettings
 }
 
 function New-VMRoleHardWareProfile {
@@ -231,8 +240,7 @@ function New-VMRoleScaleOutSettings {
         UpgradeDomainCount = $UpgradeDomainCount
 
     }
-    $object = New-Object -TypeName psobject -Property $Properties
-    $object.PSObject.TypeNames.Insert(0,'VMRoleScaleOutSettings')
+    $object = New-Object -TypeName VMRoleScaleOutSettings -Property $Properties
     Write-Output -InputObject $object
 }
 
