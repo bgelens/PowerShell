@@ -182,7 +182,7 @@ function New-VMRoleIntrinsicSettings {
         $OperatingSystemProfile,
 
         [Parameter(Mandatory)]
-        $ScaleOutSettings,
+        [VMRoleScaleOutSettings] $ScaleOutSettings,
 
         [Parameter(Mandatory)]
         $StorageProfile
@@ -216,18 +216,24 @@ function New-VMRoleOperatingSystemProfile {
 
 function New-VMRoleScaleOutSettings {
     param (
-        [Parameter(Mandatory)]
-        $InitialInstanceCount,
+        [int] $InitialInstanceCount = 1,
 
-        [Parameter(Mandatory)]
-        $MaximumInstanceCount,
+        [int] $MaximumInstanceCount = 5,
 
-        [Parameter(Mandatory)]
-        $MinimumInstanceCount,
+        [int] $MinimumInstanceCount = 1,
 
-        [Parameter(Mandatory)]
-        $UpgradeDomainCount
+        [int] $UpgradeDomainCount = 1
     )
+    $Properties = @{
+        InitialInstanceCount = $InitialInstanceCount
+        MaximumInstanceCount = $MaximumInstanceCount
+        MinimumInstanceCount = $MinimumInstanceCount
+        UpgradeDomainCount = $UpgradeDomainCount
+
+    }
+    $object = New-Object -TypeName psobject -Property $Properties
+    $object.PSObject.TypeNames.Insert(0,'VMRoleScaleOutSettings')
+    Write-Output -InputObject $object
 }
 
 function New-VMRoleStorageProfile {
