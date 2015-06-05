@@ -14,6 +14,13 @@ public class VMRoleHardWareProfile{
 }
 "@
 
+Add-Type -Language CSharp @"
+public class DataVirtualHardDisk{
+    public string DataVirtualHardDiskImage;
+    public int Lun;
+}
+"@
+
 function Get-VMRoleResourceDefinition {
     [CmdletBinding()]
     param (
@@ -189,11 +196,11 @@ function New-VMRoleIntrinsicSettings {
         [Parameter(Mandatory)]
         [VMRoleHardWareProfile] $HardwareProfile,
 
-        [Parameter(Mandatory)]
-        $NetworkProfile,
+        #[Parameter(Mandatory)]
+        #$NetworkProfile,
 
-        [Parameter(Mandatory)]
-        $OperatingSystemProfile,
+        #[Parameter(Mandatory)]
+        #$OperatingSystemProfile,
 
         [Parameter(Mandatory)]
         [VMRoleScaleOutSettings] $ScaleOutSettings,
@@ -202,6 +209,37 @@ function New-VMRoleIntrinsicSettings {
         $StorageProfile
     )
     #this function will generate the intrinsicsettings part of the resdef json
+    $props = @{
+        HardwareProfile = $HardwareProfile
+        ScaleOutSettings = $ScaleOutSettings
+        StorageProfile = $StorageProfile
+    }
+    New-Object -TypeName psobject -Property $props
+}
+
+function New-VMRoleResourceDefinition {
+    param (
+        [Parameter(Mandatory)]
+        [String] $Name,
+
+        [Parameter(Mandatory)]
+        [String] $Publisher,
+
+        [Version] $Version = '1.0.0.0',
+
+        [Parameter(Mandatory)]
+        [psobject] $IntrinsicSettings
+    )
+    $props = @{
+        Name = $Name
+        Publisher = $Publisher
+        Version = $Version.ToString()
+        IntrinsicSettings = $IntrinsicSettings
+        SchemaVersion = '1.0'
+        Type = 'Microsoft.Compute\/VMRole\/1.0'
+
+    }
+    New-Object -TypeName psobject -Property $props
 }
 
 function New-VMRoleHardWareProfile {
@@ -223,12 +261,19 @@ function New-VMRoleOperatingSystemProfile {
         [Switch] $Windows,
 
         [Parameter(ParameterSetName='Linux')]
-        [Switch] $Linux
+        [Switch] $Linux,
+
+        [String] $Password,
+
+        [Parameter(ParameterSetName='Windows')]
+        [String] $UserName
     )
 
     switch ($PSCmdlet.ParameterSetName) {
             'Windows' {}
-            'Linux' {}
+            'Linux' {
+                #username = root or param
+            }
     }
 }
 
@@ -254,7 +299,17 @@ function New-VMRoleScaleOutSettings {
 }
 
 function New-VMRoleStorageProfile {
+    param (
+        [String] $OSVirtualHardDiskImage = '[Param.VMRoleOSVirtualHardDiskImage]',
 
+        [DataVirtualHardDisk[]] $DataVirtualHardDisk
+    )
+
+    $props = @{
+        OSVirtualHardDiskImage = $OSVirtualHardDiskImage
+        DataVirtualHardDisks = $DataVirtualHardDisk
+    }
+    New-Object -TypeName psobject -ArgumentList $props
 }
 
 #Helper functions for pre WMF5
