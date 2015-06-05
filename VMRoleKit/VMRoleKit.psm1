@@ -8,6 +8,12 @@ public class VMRoleScaleOutSettings{
 }
 "@
 
+Add-Type -Language CSharp @"
+public class VMRoleHardWareProfile{
+    public string VMSize;
+}
+"@
+
 function Get-VMRoleResourceDefinition {
     [CmdletBinding()]
     param (
@@ -181,7 +187,7 @@ function New-VMRoleResDefPKG {
 function New-VMRoleIntrinsicSettings {
     param (
         [Parameter(Mandatory)]
-        $HardwareProfile,
+        [VMRoleHardWareProfile] $HardwareProfile,
 
         [Parameter(Mandatory)]
         $NetworkProfile,
@@ -196,11 +202,14 @@ function New-VMRoleIntrinsicSettings {
         $StorageProfile
     )
     #this function will generate the intrinsicsettings part of the resdef json
-    Write-Output -InputObject $ScaleOutSettings
 }
 
 function New-VMRoleHardWareProfile {
-
+    param (
+        [String] $VMSize = '[Param.VMRoleVMSize]'
+    )
+    $object = New-Object -TypeName VMRoleHardWareProfile -Property @{VMSize = $VMSize}
+    Write-Output -InputObject $object
 }
 
 function New-VMRoleNetworkProfile {
