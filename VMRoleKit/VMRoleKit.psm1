@@ -1,25 +1,189 @@
 Add-Type -AssemblyName 'system.io.compression.filesystem'
-Add-Type -Language CSharp @"
-public class VMRoleScaleOutSettings{
-    public string InitialInstanceCount;
-    public string MaximumInstanceCount;
-    public string MinimumInstanceCount;
-    public string UpgradeDomainCount;
-}
-"@
 
-Add-Type -Language CSharp @"
-public class VMRoleHardWareProfile{
-    public string VMSize;
+enum IPAllocationMethod {
+    Dynamic
+    Static
 }
-"@
 
-Add-Type -Language CSharp @"
-public class DataVirtualHardDisk{
-    public string DataVirtualHardDiskImage;
-    public int Lun;
+enum IPFamilyType {
+    IPV4
+    IPV6
 }
-"@
+
+class VMRoleDataVirtualHardDisk {
+    [Parameter(Mandatory)]
+    [ValidateNotNull()]
+    [String] $DataVirtualHardDiskImage;
+
+    [Parameter(Mandatory)]
+    [ValidateRange(0,63)]
+    [Int] $Lun;
+
+    VMRoleDataVirtualHardDisk ([String] $DataVirtualHardDiskImage, [Int] $Lun) {
+        $this.DataVirtualHardDiskImage = $DataVirtualHardDiskImage;
+        $this.Lun = $Lun;    
+    }
+}
+
+class VMRoleIPAddress {
+    [Parameter(Mandatory)]
+    [IPAllocationMethod] $AllocationMethod;
+
+    [Parameter(Mandatory)]
+    [IPFamilyType] $Type;
+
+    [String] $ConfigurationName;
+
+    VMRoleIPAddress ([IPAllocationMethod] $AllocationMethod, [IPFamilyType] $Type) {
+        $this.AllocationMethod = $AllocationMethod;
+        $this.Type = $Type;
+        if ($type -eq 'IPV4') {
+            $this.ConfigurationName = 'IPV4Configuration'
+        } 
+        else { 
+            $this.ConfigurationName = 'IPV6 Address Configuration'
+        }
+    }
+
+    VMRoleIPAddress ([IPAllocationMethod] $AllocationMethod, [IPFamilyType] $Type, [String] $ConfigurationName) {
+        $this.AllocationMethod = $AllocationMethod;
+        $this.Type = $Type;
+        $this.ConfigurationName = $ConfigurationName;
+    }
+}
+
+class VMRoleNetworkAdapter {
+    [Parameter(Mandatory)]
+    [ValidateNotNull()]
+    [String] $Name;
+
+    [Parameter(Mandatory)]
+    [ValidateNotNull()]
+    [String] $NetworkRef;
+
+    [Parameter(Mandatory)]
+    [ValidateNotNull()]
+    [VMRoleIPAddress[]] $IPAddresses;
+
+    VMRoleNetworkAdapter ([String] $Name, [String] $NetworkRef, [VMRoleIPAddress[]] $IPAddresses) {
+        $this.Name = $Name;
+        $this.NetworkRef = $NetworkRef;
+        $this.IPAddresses = $IPAddresses;
+    }
+}
+
+class VMRoleNetworkProfile {
+    [Parameter(Mandatory)]
+    [ValidateNotNull()]
+    [VMRoleNetworkAdapter[]] $NetworkAdapters;
+
+    VMRoleNetworkProfile ([VMRoleNetworkAdapter[]] $NetworkAdapters) {
+        $this.NetworkAdapters = $NetworkAdapters
+    }
+}
+
+class VMRoleHardWareProfile {
+    [String] $VMSize;
+
+    VMRoleHardWareProfile ([String] $VMSize) {
+        $this.VMSize = $VMSize;
+    }
+
+    VMRoleHardWareProfile () {
+        $this.VMSize = '[Param.VMRoleVMSize]'
+    }
+}
+
+class VMRoleScaleOutSettings {
+    [Parameter(Mandatory)]
+    [ValidateRange(1,100)]
+    [Int] $InitialInstanceCount;
+
+    [Parameter(Mandatory)]
+    [ValidateRange(1,100)]
+    [Int] $MaximumInstanceCount;
+
+    [Parameter(Mandatory)]
+    [ValidateRange(1,100)]
+    [Int] $MinimumInstanceCount;
+
+    [Parameter(Mandatory)]
+    [ValidateRange(1,10)]
+    [Int] $UpgradeDomainCount;
+
+    VMRoleScaleOutSettings ([Int] $InitialInstanceCount, [Int] $MaximumInstanceCount, [Int] $MinimumInstanceCount, [Int] $UpgradeDomainCount) {
+        $this.InitialInstanceCount = $InitialInstanceCount;
+        $this.MaximumInstanceCount = $MaximumInstanceCount;
+        $this.MinimumInstanceCount = $MinimumInstanceCount;
+        $this.UpgradeDomainCount = $UpgradeDomainCount;
+    }
+}
+
+class VMRoleStorageProfile {
+    [Parameter(Mandatory)]
+    [ValidateNotNull()]
+    [String] $OSVirtualHardDiskImage;
+
+    [VMRoleDataVirtualHardDisk[]] $DataVirtualHardDisk;
+
+    VMRoleStorageProfile ([String] $OSVirtualHardDiskImage, [VMRoleDataVirtualHardDisk[]] $DataVirtualHardDisk) {
+        $this.OSVirtualHardDiskImage = $OSVirtualHardDiskImage;
+        $this.DataVirtualHardDisk = $DataVirtualHardDisk;
+    }
+
+    VMRoleStorageProfile ([String] $OSVirtualHardDiskImage) {
+        $this.OSVirtualHardDiskImage = $OSVirtualHardDiskImage;
+    }
+
+    VMRoleStorageProfile () {
+        $this.OSVirtualHardDiskImage = '[Param.VMRoleOSVirtualHardDiskImage]';
+    }
+}
+
+class VMRoleIntrinsicSettings {
+    [Parameter(Mandatory)]
+    [ValidateNotNull()]
+    [VMRoleHardWareProfile] $HardwareProfile;
+
+    [Parameter(Mandatory)]
+    [ValidateNotNull()]
+    [VMRoleScaleOutSettings] $ScaleOutSettings;
+
+    [Parameter(Mandatory)]
+    [ValidateNotNull()]
+    [VMRoleStorageProfile] $StorageProfile;
+
+    [Parameter(Mandatory)]
+    [ValidateNotNull()]
+    [VMRoleNetworkProfile] $NetworkProfile;
+
+    VMRoleIntrinsicSettings ([VMRoleHardWareProfile] $HardwareProfile, [VMRoleScaleOutSettings] $ScaleOutSettings, [VMRoleStorageProfile] $StorageProfile, [VMRoleNetworkProfile] $NetworkProfile) {
+        $this.HardwareProfile = $HardwareProfile;
+        $this.ScaleOutSettings = $ScaleOutSettings;
+        $this.StorageProfile = $StorageProfile;
+        $this.NetworkProfile = $NetworkProfile;
+    }
+}
+
+class VMRoleParameter {
+    [Parameter(Mandatory)]
+    [ValidateNotNull()]
+    [String] $Name;
+
+    [Parameter(Mandatory)]
+    [ValidateNotNull()]
+    [String] $Description;
+
+    [Parameter(Mandatory)]
+    [ValidateSet('String','Int','Boolean','Credential','SecureString')]
+    [String] $Type;
+
+    VMRoleParameter ([String] $Name, [String] $Description, [String] $Type) {
+        $this.Name = $Name;
+        $this.Description = $Description;
+        $this.Type = $Type;
+    }
+}
 
 function Get-VMRoleResourceDefinition {
     [CmdletBinding()]
@@ -173,50 +337,6 @@ function Get-VMRoleViewDefinition {
 #Get-VMRoleViewDefinition -Verbose -ResourceDefinitionPackagePath .\import\RABO_PROD_W2012R2_DEV_1001.resdefpkg
 #dir .\import -File | Get-VMRoleViewDefinition -Verbose -IncludeJSON
 
-function New-VMRoleResDefPKG {
-    [CmdletBinding(DefaultParameterSetName='Windows')]
-    param (
-        [Parameter(Mandatory)]
-        [String] $Name,
-
-        [Parameter(Mandatory)]
-        [String] $Destination
-    )
-    #this function will merge all files and creates a ResDefPKG
-    Process {
-        $TempDir = [System.IO.Path]::GetTempPath()
-        $TempSkeletonDir = $TempDir + $Name
-        New-Item -Path $TempDir -Name $Name -ItemType Directory -Force | Out-Null
-
-    }
-}
-
-function New-VMRoleIntrinsicSettings {
-    param (
-        [Parameter(Mandatory)]
-        [VMRoleHardWareProfile] $HardwareProfile,
-
-        #[Parameter(Mandatory)]
-        #$NetworkProfile,
-
-        #[Parameter(Mandatory)]
-        #$OperatingSystemProfile,
-
-        [Parameter(Mandatory)]
-        [VMRoleScaleOutSettings] $ScaleOutSettings,
-
-        [Parameter(Mandatory)]
-        $StorageProfile
-    )
-    #this function will generate the intrinsicsettings part of the resdef json
-    $props = @{
-        HardwareProfile = $HardwareProfile
-        ScaleOutSettings = $ScaleOutSettings
-        StorageProfile = $StorageProfile
-    }
-    New-Object -TypeName psobject -Property $props
-}
-
 function New-VMRoleResourceDefinition {
     param (
         [Parameter(Mandatory)]
@@ -228,7 +348,10 @@ function New-VMRoleResourceDefinition {
         [Version] $Version = '1.0.0.0',
 
         [Parameter(Mandatory)]
-        [psobject] $IntrinsicSettings
+        [VMRoleIntrinsicSettings] $IntrinsicSettings,
+
+        [Parameter(Mandatory)]
+        [VMRoleParameter[]] $ResourceParameters
     )
     $props = @{
         Name = $Name
@@ -237,79 +360,10 @@ function New-VMRoleResourceDefinition {
         IntrinsicSettings = $IntrinsicSettings
         SchemaVersion = '1.0'
         Type = 'Microsoft.Compute\/VMRole\/1.0'
+        ResourceParameters = $ResourceParameters
 
     }
     New-Object -TypeName psobject -Property $props
-}
-
-function New-VMRoleHardWareProfile {
-    param (
-        [String] $VMSize = '[Param.VMRoleVMSize]'
-    )
-    $object = New-Object -TypeName VMRoleHardWareProfile -Property @{VMSize = $VMSize}
-    Write-Output -InputObject $object
-}
-
-function New-VMRoleNetworkProfile {
-
-}
-
-function New-VMRoleOperatingSystemProfile {
-    [CmdletBinding(DefaultParameterSetName='Windows')]
-    param (
-        [Parameter(ParameterSetName='Windows')]
-        [Switch] $Windows,
-
-        [Parameter(ParameterSetName='Linux')]
-        [Switch] $Linux,
-
-        [String] $Password,
-
-        [Parameter(ParameterSetName='Windows')]
-        [String] $UserName
-    )
-
-    switch ($PSCmdlet.ParameterSetName) {
-            'Windows' {}
-            'Linux' {
-                #username = root or param
-            }
-    }
-}
-
-function New-VMRoleScaleOutSettings {
-    param (
-        [int] $InitialInstanceCount = 1,
-
-        [int] $MaximumInstanceCount = 5,
-
-        [int] $MinimumInstanceCount = 1,
-
-        [int] $UpgradeDomainCount = 1
-    )
-    $Properties = @{
-        InitialInstanceCount = $InitialInstanceCount
-        MaximumInstanceCount = $MaximumInstanceCount
-        MinimumInstanceCount = $MinimumInstanceCount
-        UpgradeDomainCount = $UpgradeDomainCount
-
-    }
-    $object = New-Object -TypeName VMRoleScaleOutSettings -Property $Properties
-    Write-Output -InputObject $object
-}
-
-function New-VMRoleStorageProfile {
-    param (
-        [String] $OSVirtualHardDiskImage = '[Param.VMRoleOSVirtualHardDiskImage]',
-
-        [DataVirtualHardDisk[]] $DataVirtualHardDisk
-    )
-
-    $props = @{
-        OSVirtualHardDiskImage = $OSVirtualHardDiskImage
-        DataVirtualHardDisks = $DataVirtualHardDisk
-    }
-    New-Object -TypeName psobject -ArgumentList $props
 }
 
 #Helper functions for pre WMF5
