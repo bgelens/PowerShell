@@ -16,3 +16,9 @@ $NetRefParam = [VMRoleParameter]::new('VMRoleNetworkRef','Network reference','St
 $intrinsic = [VMRoleIntrinsicSettings]::new($HWProf,$scaleout,$storageprof,$NetProf)
 $Resdef = New-VMRoleResourceDefinition -Name TestRole -Publisher 'Ben Gelens' -IntrinsicSettings $intrinsic -ResourceParameters @($OSDiskParam,$NetRefParam)
 $Resdef | ConvertTo-Json -Depth 7
+
+
+
+#add by method (Master class)
+$temp = [VMRoleResourceDefinition]::new('test','Ben','1.0.0.0') 
+$temp.AddResourceParameter(@($OSDiskParam,$NetRefParam))

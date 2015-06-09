@@ -185,6 +185,41 @@ class VMRoleParameter {
     }
 }
 
+class VMRoleWindowsOperatingSystemProfile {
+    [String] $WorkgroupName;
+
+
+
+    VMRoleWindowsOperatingSystemProfile ([String] $WorkgroupName) {
+        $this.WorkgroupName = $WorkgroupName;
+    }
+}
+
+#Master class, add by method
+class VMRoleResourceDefinition {
+    [String] $Name;
+
+    [String] $Publisher;
+
+    [String] $Version;
+
+    hidden [String] $SchemaVersion = '1.0';
+
+    hidden [String] $Type = 'Microsoft.Compute\/VMRole\/1.0';
+
+    [VMRoleParameter[]] $ResourceParameters;
+
+    VMRoleResourceDefinition ([String] $Name, [String] $Publisher, [String] $Version) {
+        $this.Name = $Name
+        $this.Publisher = $Publisher;
+        $this.Version = $Version;
+    }
+
+    AddResourceParameter ([VMRoleParameter[]] $Parameter) {
+        $this.ResourceParameters += $Parameter
+    }
+}
+
 function Get-VMRoleResourceDefinition {
     [CmdletBinding()]
     param (
