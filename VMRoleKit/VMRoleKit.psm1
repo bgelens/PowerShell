@@ -209,6 +209,8 @@ class VMRoleResourceDefinition {
 
     [VMRoleParameter[]] $ResourceParameters;
 
+    [VMRoleIntrinsicSettings] $IntrinsicSettings;
+
     VMRoleResourceDefinition ([String] $Name, [String] $Publisher, [String] $Version) {
         $this.Name = $Name
         $this.Publisher = $Publisher;
@@ -217,6 +219,10 @@ class VMRoleResourceDefinition {
 
     AddResourceParameter ([VMRoleParameter[]] $Parameter) {
         $this.ResourceParameters += $Parameter
+    }
+
+    AddIntrinsicSettings ([VMRoleIntrinsicSettings] $IntrinsicSettings) {
+        $this.IntrinsicSettings = $IntrinsicSettings
     }
 }
 
