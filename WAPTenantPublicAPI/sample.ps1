@@ -28,5 +28,15 @@ New-WAPVMRoleDeployment -VMRole $GI -ParameterObject $VMProps -Token $token -Use
 #'test' | New-WAPCloudService -Token $token -UserId $creds.UserName -PublicTenantAPIUrl https://api.bgelens.nl -Subscription $subscription.subscriptionid -Port 443 -Verbose
 #'Test','Test2'| Remove-WAPCloudService -Token $token -Subscription $Subscription.subscriptionid -UserId $creds.UserName -PublicTenantAPIUrl https://api.bgelens.nl -Port 443 -Force
 
-$test = Get-WAPCloudService -Token $token -UserId $creds.UserName -PublicTenantAPIUrl https://api.bgelens.nl -Subscription $Subscription.SubscriptionID -Port 443 -Verbose -List
-Remove-WAPCloudService -Token $token -UserId $creds.UserName -PublicTenantAPIUrl https://api.bgelens.nl -Subscription $Subscription.SubscriptionID -Port 443 -Name test2
+<#tenantpublicapi requirements!
+tenantpublicapi needs to be configured for HybridTenant mode
+This will allow token based authentication
+The tenantpublicapi by default does not have enough permissions in the database to function correctly
+Missing execute permissions can be resolved with the following TSQL script
+
+USE [Microsoft.MgmtSvc.Store]
+GO
+Grant Execute On Type::.mp.CoAdminTableType To mp_TenantAPI
+Grant Execute On Object::mp.GetInvalidatedUserTokens to mp_TenantAPI
+
+#>
