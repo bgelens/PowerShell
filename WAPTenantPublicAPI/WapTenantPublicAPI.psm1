@@ -79,6 +79,7 @@ function Get-WAPASPNetToken {
         [Parameter(Mandatory)]
         [PSCredential] $Credential,
 
+        [ValidateSet('http://azureservices/TenantSite','http://azureservices/AdminSite')]
         [string] $clientRealm = 'http://azureservices/TenantSite',
 
         [switch] $allowSelfSignCertificates,
@@ -147,7 +148,7 @@ function Get-WAPSubscription {
         [Parameter(Mandatory)]
         [String] $PublicTenantAPIUrl,
 
-        [Int] $Port = 30005,
+        [Int] $Port = 30006,
 
         [Parameter(Mandatory,
                    ParameterSetName='Name')]
@@ -196,10 +197,12 @@ function Get-WAPSubscription {
         $Subscriptions = Invoke-RestMethod -Uri $URL -Headers $Headers -Method Get
         foreach ($S in $Subscriptions) {
             if ($PSCmdlet.ParameterSetName -eq 'Name') {
-                Write-Output -InputObject (($S | Where-Object{$_.SubscriptionName -eq $name}) -as [pscustomobject])
+                if ($sub = $S | Where-Object -FilterScript {$_.SubscriptionName -eq $name}) {
+                    Write-Output -InputObject ([pscustomobject]$Sub)
+                }
             }
             else {
-                Write-Output ([pscustomobject]$S)
+                Write-Output -InputObject ([pscustomobject]$S)
             }
         }
     }
@@ -227,7 +230,7 @@ function Get-WAPGalleryVMRole {
         [Parameter(Mandatory)]
         [String] $Subscription,
 
-        [Int] $Port = 30005,
+        [Int] $Port = 30006,
 
         [Parameter(ParameterSetName='List')]
         [Switch] $List,
@@ -241,7 +244,8 @@ function Get-WAPGalleryVMRole {
             Authorization = "Bearer $Token"
             'x-ms-principal-id' = $UserId
     }
-    $GalleryItems = Invoke-RestMethod -Uri "https://api.bgelens.nl/$Subscription/Gallery/GalleryItems/$/MicrosoftCompute.VMRoleGalleryItem?api-version=2013-03" -Headers $Headers -Method Get 
+    $URI = '{0}:{1}/{2}/Gallery/GalleryItems/$/MicrosoftCompute.VMRoleGalleryItem?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription
+    $GalleryItems = Invoke-RestMethod -Uri $URI -Headers $Headers -Method Get 
     if ($PSCmdlet.ParameterSetName -eq 'Name') {
         $Items = $GalleryItems.content.properties | Where-Object{$_.name -eq $Name}
     }
@@ -258,11 +262,11 @@ function Get-WAPGalleryVMRole {
         Add-Member -InputObject $output -MemberType NoteProperty -Name PublishDate -Value ([datetime]$G.PublishDate.'#text') -Force
         
         $GIResDEFUri = '{0}:{1}/{2}/{3}/?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription,$G.ResourceDefinitionUrl
-        $ResDef = Invoke-RestMethod -Uri $GIResDEFUri -Headers $Headers -UseBasicParsing -Method Get
+        $ResDef = Invoke-RestMethod -Uri $GIResDEFUri -Headers $Headers -Method Get
         Add-Member -InputObject $output -MemberType NoteProperty -Name ResDef -Value $ResDef -Force
         
         $GIViewDefUri = '{0}:{1}/{2}/{3}/?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription,$G.ViewDefinitionUrl
-        $ViewDef = Invoke-RestMethod -Uri $GIViewDefUri -Headers $Headers -UseBasicParsing -Method Get
+        $ViewDef = Invoke-RestMethod -Uri $GIViewDefUri -Headers $Headers d-Method Get
         Add-Member -InputObject $output -MemberType NoteProperty -Name ViewDef -Value $ViewDef -Force
         Write-Output -InputObject $output
     }
@@ -285,7 +289,7 @@ function Get-WAPVMRoleOSDisk {
         [Parameter(Mandatory)]
         [String] $Subscription,
 
-        [Int] $Port = 30005
+        [Int] $Port = 30006
     )
     $Sections = $VMRole.ViewDef.ViewDefinition.Sections
     $Categories = $Sections | %{$_.Categories}
@@ -334,7 +338,7 @@ function Get-WAPVMNetwork {
         [Parameter(Mandatory)]
         [String] $Subscription,
 
-        [Int] $Port = 30005,
+        [Int] $Port = 30006,
 
         [Parameter(Mandatory,
                    ParameterSetName='List')]
@@ -471,7 +475,7 @@ function Get-WAPCloudService {
         [Parameter(Mandatory)]
         [String] $Subscription,
 
-        [Int] $Port = 30005
+        [Int] $Port = 30006
     )
     begin {
         $Headers = @{
@@ -485,11 +489,12 @@ function Get-WAPCloudService {
         Invoke-RestMethod -Uri $URI -Headers $Headers -Method Get | %{
 
             if ($PSCmdlet.ParameterSetName -eq 'Name') {
-                $obj = ($_ | ?{$_.content.properties.Name -eq $Name}).content.properties -as [pscustomobject]
-                Write-Output -InputObject $obj
+                if ($obj = ($_ | ?{$_.content.properties.Name -eq $Name}).content.properties) {
+                    Write-Output -InputObject $obj
+                }
             }
             else {
-                $obj = [pscustomobject]$_.content.properties
+                $obj = $_.content.properties
                 Write-Output -InputObject $obj
             }
         }
@@ -515,7 +520,7 @@ function New-WAPCloudService {
                    ValueFromPipeline)]
         [String] $Name,
 
-        [Int] $Port = 30005
+        [Int] $Port = 30006
     )
     begin {
         $Headers = @{
@@ -556,7 +561,7 @@ function Remove-WAPCloudService {
         [Parameter(Mandatory)]
         [String] $Subscription,
 
-        [Int] $Port = 30005,
+        [Int] $Port = 30006,
 
         [Switch] $Force
     )
@@ -602,7 +607,7 @@ function New-WAPVMRoleDeployment {
         [Parameter(Mandatory)]
         [String] $CloudServiceName,
 
-        [Int] $Port = 30005
+        [Int] $Port = 30006
     )
 
     $CloudServiceParams = $PSBoundParameters
