@@ -55,7 +55,7 @@
     </s:Envelope>
 "@
 
-    $tokenresponse = [xml] ($xml | Invoke-WebRequest -uri $sendto -Method Post -ContentType 'application/soap+xml' -TimeoutSec 30 )
+    $tokenresponse = [xml] ($xml | Invoke-WebRequest -uri $sendto -Method Post -ContentType 'application/soap+xml' -TimeoutSec 30 -UseBasicParsing)
 
     $tokenString = $tokenresponse.Envelope.Body.RequestSecurityTokenResponseCollection.RequestSecurityTokenResponse.RequestedSecurityToken.InnerText
     $token = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($tokenString))
