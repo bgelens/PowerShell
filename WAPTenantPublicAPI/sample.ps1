@@ -1,4 +1,5 @@
-﻿ipmo WapTenantPublicAPI
+﻿ipmo C:\git\PowerShell\WapTenantPublicAPI\WapTenantPublicAPI.psd1
+Remove-Module WapTenantPublicAPI
 
 #$creds = Get-Credential
 $token = Get-WAPAdfsToken -Credential $creds -AdfsURL 'https://sts.bgelens.nl' -Verbose
@@ -15,10 +16,11 @@ $OSDisk = Get-WAPVMRoleOSDisk -VMRole $GI -Token $token -UserId $creds.UserName 
 #Get-WAPVMNetwork -Token $token -UserId $creds.UserName -PublicTenantAPIUrl https://api.bgelens.nl -Port 443 -Verbose -Subscription $Subscription.SubscriptionID -List
 $Net = Get-WAPVMNetwork -Token $token -UserId $creds.UserName -PublicTenantAPIUrl https://api.bgelens.nl -Port 443 -Verbose -Subscription $Subscription.SubscriptionID -Name Internal
 
-#New-WAPVMRoleParameterObject -VMRole $GI -OSDisk $OSDisk -VMRoleVMSize Large -Credential Administrator -VMNetwork $Net -OutVariable 'props' -Interactive
-$VMProps = New-WAPVMRoleParameterObject -VMRole $GI -OSDisk $OSDisk -VMRoleVMSize Medium -Credential Administrator -VMNetwork $Net
+#New-WAPVMRoleParameterObject -VMRole $GI -OSDisk $OSDisk -VMRoleVMSize Large -VMNetwork $Net -OutVariable 'props' -Interactive
+$VMProps = New-WAPVMRoleParameterObject -VMRole $GI -OSDisk $OSDisk -VMRoleVMSize Medium -VMNetwork $Net
+$VMProps.VMRoleAdminCredential = 'Administrator:Welkom01'
+$VMProps.DSCPullServerClientCredential = 'Domain\Certreq:password'
 $VMProps.DSCPullServerClientConfigurationId = '7844f909-1f2e-4770-9c97-7a2e2e5677ae'
-$VMProps.DSCPullServerClientCredential = $VMProps.DSCPullServerClientCredential + ':Welkom01'
 
 Get-WAPCloudService -Token $token -UserId $creds.UserName -PublicTenantAPIUrl https://api.bgelens.nl -Subscription $Subscription.SubscriptionID -Port 443 -Verbose -List
 #Get-WAPCloudService -Token $token -UserId $creds.UserName -PublicTenantAPIUrl https://api.bgelens.nl -Subscription $Subscription.SubscriptionID -Port 443 -Verbose -List

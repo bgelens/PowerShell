@@ -266,7 +266,7 @@ function Get-WAPGalleryVMRole {
         Add-Member -InputObject $output -MemberType NoteProperty -Name ResDef -Value $ResDef -Force
         
         $GIViewDefUri = '{0}:{1}/{2}/{3}/?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription,$G.ViewDefinitionUrl
-        $ViewDef = Invoke-RestMethod -Uri $GIViewDefUri -Headers $Headers d-Method Get
+        $ViewDef = Invoke-RestMethod -Uri $GIViewDefUri -Headers $Headers -Method Get
         Add-Member -InputObject $output -MemberType NoteProperty -Name ViewDef -Value $ViewDef -Force
         Write-Output -InputObject $output
     }
@@ -383,9 +383,6 @@ function New-WAPVMRoleParameterObject {
         [String] $VMRoleVMSize,
 
         [Parameter(Mandatory)]
-        [PSCredential] $Credential,
-
-        [Parameter(Mandatory)]
         [Object] $VMNetwork,
 
         [Switch] $Interactive
@@ -400,8 +397,8 @@ function New-WAPVMRoleParameterObject {
             $values = ''
             foreach ($v in $P.OptionValues) {
                 $Def = ($v | Get-Member -MemberType NoteProperty).Definition.Split(' ')[1].Split('=')
-                $Friendly = $Def[0]
-                $Value = $Def[1] 
+                $Friendly = $Def[1]
+                $Value = $Def[0] 
                 $values += $value + ','
             }
             $values = $values.TrimEnd(',')
@@ -425,6 +422,13 @@ function New-WAPVMRoleParameterObject {
                 Add-Member -InputObject $Output -MemberType NoteProperty -Name $P.Name -Value $result -Force
             }
         }
+        elseif ($Interactive -and $P.type -eq 'Credential') {
+            do {
+                $result = Read-Host "Enter a credential for $($P.Name) in the format domain\username:password or username:password"
+            }
+            while ($result -notmatch '\w+\\+\w+:+\w+' -and $result -notmatch '\w+:+\w+')
+            Add-Member -InputObject $Output -MemberType NoteProperty -Name $P.Name -Value $result -Force
+        }
         elseif ($P.DefaultValue) {
             Add-Member -InputObject $Output -MemberType NoteProperty -Name $P.Name -Value $P.DefaultValue -Force
         }
@@ -435,7 +439,7 @@ function New-WAPVMRoleParameterObject {
             Add-Member -InputObject $Output -MemberType NoteProperty -Name $P.Name -Value $VMRoleVMSize -Force
         }
         elseif ($P.Type -eq 'Credential') {
-            Add-Member -InputObject $Output -MemberType NoteProperty -Name $P.Name -Value "$($Credential.UserName):$($Credential.GetNetworkCredential().Password)" -Force
+            Add-Member -InputObject $Output -MemberType NoteProperty -Name $P.Name -Value 'domain\username:password' -Force
         }
         elseif ($P.Type -eq 'Network') {
             Add-Member -InputObject $Output -MemberType NoteProperty -Name $P.Name -Value $($VMNetwork.Name) -Force
