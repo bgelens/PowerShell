@@ -2,7 +2,9 @@
 Remove-Module WapTenantPublicAPI
 
 #$creds = Get-Credential
-$token = Get-WAPAdfsToken -Credential $creds -AdfsURL 'https://sts.bgelens.nl' -Verbose
+$token = Get-WAPAdfsToken -Credential $creds -URL 'https://sts.bgelens.nl' -Verbose
+
+#Get-WAPASPNetToken -Credential ben@bgelens.nl -URL https://wapauth.bgelens.nl -Verbose -Port 443
 
 #Get-WAPSubscription -Token $Token -UserId $creds.UserName -Verbose -PublicTenantAPIUrl https://api.bgelens.nl -Port 443 -List
 $Subscription = Get-WAPSubscription -Token $token -UserId $creds.UserName -Verbose -PublicTenantAPIUrl https://api.bgelens.nl -Port 443 -Name 'Test'

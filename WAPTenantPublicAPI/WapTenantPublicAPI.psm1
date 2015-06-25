@@ -5,7 +5,7 @@
         [PSCredential] $Credential,
 
         [Parameter(Mandatory)]
-        [String] $AdfsURL,
+        [String] $URL,
 
         [Int] $Port = 443,
 
@@ -23,7 +23,7 @@
         $applyTo = 'http://azureservices/AdminSite'
     }
     #http://virtualstation.azurewebsites.net/?p=4331
-    $sendTo = '{0}:{1}/adfs/services/trust/13/usernamemixed' -f $AdfsURL,$Port
+    $sendTo = '{0}:{1}/adfs/services/trust/13/usernamemixed' -f $URL,$Port
     $tokenType = 'urn:ietf:params:oauth:token-type:jwt'
 
     $xml = @"
@@ -63,14 +63,12 @@
 }
 
 function Get-WAPASPNetToken {
-    # PowerShell script to get security token from membership STS over AD FS
+    # PowerShell script to get security token from membership STS
     # Copyright (c) Microsoft Corporation. All rights reserved.
     # Function taken from WAP Examples 'C:\Program Files\Management Service\MgmtSvc-PowerShellAPI\Samples\Authentication\Get-TokenMembership.ps1'
     # Modified by Ben Gelens, Inovativ
     # Adjustments:
     # Changed username password parameters to credential
-    # Added dev switch
-    # Removed authsiteaddress parameter
     # Remove mandatory clientrealm and added default value
     [cmdletbinding()]
     Param(
@@ -85,8 +83,17 @@ function Get-WAPASPNetToken {
         [switch] $allowSelfSignCertificates,
 
         [Parameter(Mandatory)]
-        [string] $authSiteAddress
+        [string] $URL,
+
+        [Int] $Port
     )
+
+    if ($Port -eq $null -and $clientRealm -eq 'http://azureservices/TenantSite') {
+        $Port = 30071
+    }
+    if ($Port -eq $null -and $clientRealm -eq 'http://azureservices/AdminSite') {
+        $Port = 30072
+    }
 
     try {
         Add-Type -AssemblyName 'System.ServiceModel, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089'
@@ -97,7 +104,7 @@ function Get-WAPASPNetToken {
     }
 
     try {
-        $identityProviderEndpoint = New-Object -TypeName System.ServiceModel.EndpointAddress -ArgumentList ($authSiteAddress + '/wstrust/issue/usernamemixed')
+        $identityProviderEndpoint = New-Object -TypeName System.ServiceModel.EndpointAddress -ArgumentList ($URL + ":$Port" + '/wstrust/issue/usernamemixed')
 
         $identityProviderBinding = New-Object -TypeName System.ServiceModel.WS2007HttpBinding -ArgumentList ([System.ServiceModel.SecurityMode]::TransportWithMessageCredential)
         $identityProviderBinding.Security.Message.EstablishSecurityContext = $false
@@ -137,7 +144,7 @@ function Get-WAPASPNetToken {
 }
 
 function Get-WAPSubscription {
-    [cmdletbinding()]
+    [cmdletbinding(DefaultParameterSetName='List')]
     param (
         [Parameter(Mandatory)]
         [String] $Token,
