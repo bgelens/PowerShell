@@ -681,4 +681,90 @@ function New-WAPVMRoleDeployment {
     }
 }
 
+function Get-WAPDeployedVMRole {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory)]
+        [String] $CloudServiceName,
+
+        [Parameter(Mandatory)]
+        [String] $Token,
+
+        [Parameter(Mandatory)]
+        [String] $UserId,
+
+        [Parameter(Mandatory)]
+        [String] $PublicTenantAPIUrl,
+
+        [Parameter(Mandatory)]
+        [String] $Subscription,
+
+        [Int] $Port = 30006
+    )
+    begin {
+        $Headers = @{
+                Authorization = "Bearer $Token"
+                'x-ms-principal-id' = $UserId
+        }
+    }
+    process {
+        $URI = '{0}:{1}/{2}/CloudServices/{3}/Resources/MicrosoftCompute/VMRoles?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription,$CloudServiceName
+
+        Invoke-RestMethod -Uri $URI -Headers $Headers -Method Get | %{
+            $obj = $_.content.properties
+            Add-Member -InputObject $obj -MemberType NoteProperty -Name CloudServiceName -Value $CloudServiceName -Force
+            Write-Output -InputObject $obj
+        }
+    }
+}
+
+function Get-WAPDeployedVMRoleVM {
+    [cmdletbinding()]
+    param (
+        [Parameter(Mandatory,
+                   ParameterSetName='Defined')]
+        [String] $CloudServiceName,
+
+        [Parameter(Mandatory,
+                   ParameterSetName='Object')]
+        [PSObject] $DeployedVMRole,
+
+        [Parameter(Mandatory,
+                   ParameterSetName='Defined')]
+        [String] $VMRoleName,
+
+        [Parameter(Mandatory)]
+        [String] $Token,
+
+        [Parameter(Mandatory)]
+        [String] $UserId,
+
+        [Parameter(Mandatory)]
+        [String] $PublicTenantAPIUrl,
+
+        [Parameter(Mandatory)]
+        [String] $Subscription,
+
+        [Int] $Port = 30006
+    )
+    begin {
+        $Headers = @{
+                Authorization = "Bearer $Token"
+                'x-ms-principal-id' = $UserId
+        }
+    }
+    process {
+        if ($PSCmdlet.ParameterSetName -eq 'Defined') {
+            $URI = '{0}:{1}/{2}/CloudServices/{3}/Resources/MicrosoftCompute/VMRoles/{4}/VMs?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription,$CloudServiceName,$VMRoleName
+        }
+        else {
+            $URI = '{0}:{1}/{2}/CloudServices/{3}/Resources/MicrosoftCompute/VMRoles/{4}/VMs?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription,$DeployedVMRole.CloudServiceName,$DeployedVMRole.Name
+        }
+        Invoke-RestMethod -Uri $URI -Headers $Headers -Method Get | %{
+                $obj = $_.content.properties
+                Write-Output -InputObject $obj
+        }
+    }
+}
+
 Export-ModuleMember *-WAP*

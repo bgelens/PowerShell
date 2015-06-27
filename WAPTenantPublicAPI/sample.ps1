@@ -32,6 +32,9 @@ New-WAPVMRoleDeployment -VMRole $GI -ParameterObject $VMProps -Token $token -Use
 #'test' | New-WAPCloudService -Token $token -UserId $creds.UserName -PublicTenantAPIUrl https://api.bgelens.nl -Subscription $subscription.subscriptionid -Port 443 -Verbose
 #'Test','Test2'| Remove-WAPCloudService -Token $token -Subscription $Subscription.subscriptionid -UserId $creds.UserName -PublicTenantAPIUrl https://api.bgelens.nl -Port 443 -Force
 
+$role=Get-WAPDeployedVMRole -Token $token -UserId $creds.UserName -CloudServiceName 'TestDSC' -PublicTenantAPIUrl https://api.bgelens.nl -Subscription $Subscription.SubscriptionID -Port 443 -Verbose 
+Get-WAPDeployedVMRoleVM -Token $token -UserId $creds.UserName -CloudServiceName 'TestDSC' -PublicTenantAPIUrl https://api.bgelens.nl -Subscription $Subscription.SubscriptionID -Port 443 -Verbose -VMRoleName 'TestDSC'
+Get-WAPDeployedVMRoleVM -Token $token -UserId $creds.UserName -PublicTenantAPIUrl https://api.bgelens.nl -Subscription $Subscription.SubscriptionID -Port 443 -Verbose -DeployedVMRole $role
 <#tenantpublicapi requirements!
 tenantpublicapi needs to be configured for HybridTenant mode
 This will allow token based authentication
