@@ -106,5 +106,29 @@
             </ListControl>
         </View>
 
+        <View>
+            <Name>WAP.VMNetwork</Name>
+            <ViewSelectedBy>
+                <TypeName>WAP.VMNetwork</TypeName>
+            </ViewSelectedBy>
+             <ListControl>
+                <ListEntries>
+                    <ListEntry>
+                        <ListItems>
+                            <ListItem>
+                                <PropertyName>Name</PropertyName>
+                            </ListItem>
+                            <ListItem>
+                                <PropertyName>Description</PropertyName>
+                            </ListItem>
+                            <ListItem>
+                                <PropertyName>IsolationType</PropertyName>
+                            </ListItem>
+                        </ListItems>
+                    </ListEntry>
+                </ListEntries>
+            </ListControl>
+        </View>
+        
     </ViewDefinitions>
 </Configuration>

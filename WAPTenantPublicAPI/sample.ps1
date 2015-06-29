@@ -7,14 +7,12 @@ $token = Get-WAPAdfsToken -Credential $creds -URL 'https://sts.bgelens.nl' -Verb
 $Subscription = Get-WAPSubscription -Token $token -UserId $creds.UserName -Verbose -PublicTenantAPIUrl https://api.bgelens.nl -Port 443 -Name 'Test'
 $Subscription | Get-WAPGalleryVMRole
 $GI = $Subscription | Get-WAPGalleryVMRole -Name DSCPullServerClient
-$GI | Get-WAPVMRoleOSDisk -Verbose
+$OSDisk = $GI | Get-WAPVMRoleOSDisk
+$NW = $Subscription | Get-WAPVMNetwork -Name internal
 
-
-#Get-WAPVMNetwork -Token $token -UserId $creds.UserName -PublicTenantAPIUrl https://api.bgelens.nl -Port 443 -Verbose -Subscription $Subscription.SubscriptionID -List
-$Net = Get-WAPVMNetwork -Token $token -UserId $creds.UserName -PublicTenantAPIUrl https://api.bgelens.nl -Port 443 -Verbose -Subscription $Subscription.SubscriptionID -Name Internal
 
 #New-WAPVMRoleParameterObject -VMRole $GI -OSDisk $OSDisk -VMRoleVMSize Large -VMNetwork $Net -OutVariable 'props' -Interactive
-$VMProps = New-WAPVMRoleParameterObject -VMRole $GI -OSDisk $OSDisk -VMRoleVMSize Medium -VMNetwork $Net
+$VMProps = New-WAPVMRoleParameterObject -VMRole $GI -OSDisk $OSDisk -VMRoleVMSize Medium -VMNetwork $NW
 $VMProps.VMRoleAdminCredential = 'Administrator:Welkom01'
 $VMProps.DSCPullServerClientCredential = 'Domain\Certreq:password'
 $VMProps.DSCPullServerClientConfigurationId = '7844f909-1f2e-4770-9c97-7a2e2e5677ae'

@@ -5,7 +5,7 @@
 	$Params.GenerateExecutable = $False
 	$Params.GenerateInMemory = $True
 	$Params.IncludeDebugInformation = $False
-	$Params.ReferencedAssemblies.Add("System.DLL") > $null
+	$Params.ReferencedAssemblies.Add('System.DLL') > $null
 	$TASource=@'
 		namespace Local.ToolkitExtensions.Net.CertificatePolicy
 		{
@@ -22,7 +22,7 @@
 	$TAResults=$Provider.CompileAssemblyFromSource($Params,$TASource)
 	$TAAssembly=$TAResults.CompiledAssembly
         ## We create an instance of TrustAll and attach it to the ServicePointManager
-	$TrustAll = $TAAssembly.CreateInstance("Local.ToolkitExtensions.Net.CertificatePolicy.TrustAll")
+	$TrustAll = $TAAssembly.CreateInstance('Local.ToolkitExtensions.Net.CertificatePolicy.TrustAll')
         [System.Net.ServicePointManager]::CertificatePolicy = $TrustAll
 }
 
@@ -531,48 +531,105 @@ function Get-WAPVMRoleOSDisk {
 }
 
 function Get-WAPVMNetwork {
+    <#
+    .SYNOPSIS
+    Retrieves subscription available VM Networks from Azure Pack TenantPublic or Tenant API.
+
+    .DESCRIPTION
+    Retrieves subscription available VM Networks from Azure Pack TenantPublic or Tenant API.
+
+    .PARAMETER Token
+    Bearer token acquired via Get-WAPADFSToken or Get-WAPASPNetToken.
+
+    .PARAMETER UserId
+    The UserId used to get the Bearer token.
+
+    .EXAMPLE
+    $URL = 'https://publictenantapi.mydomain.com'
+    $creds = Get-Credential
+    $token = Get-WAPAdfsToken -Credential $creds -URL 'https://sts.adfs.com'
+    $Subscription = Get-WAPSubscription -Token $token -UserId $creds.UserName -PublicTenantAPIUrl $URL -Port 443 -Name 'MySubscription'
+    $Subscription | Get-WAPVMNetwork
+    #>
     [CmdletBinding(DefaultParameterSetName='List')]
     param (
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $Token,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $UserId,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $PublicTenantAPIUrl,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
+        [Alias('SubscriptionId')]
         [String] $Subscription,
 
+        [Parameter(ValueFromPipelineByPropertyName)]
         [Int] $Port = 30006,
 
-        [Parameter(Mandatory,
-                   ParameterSetName='List')]
+        [Parameter(ParameterSetName='List')]
         [Switch] $List,
 
         [Parameter(Mandatory,
                    ParameterSetName='Name')]
-        [String] $Name
+        [String] $Name,
+
+        [Switch] $IgnoreSSL
     )
-
-    $Headers = @{
-            Authorization = "Bearer $Token"
-            'x-ms-principal-id' = $UserId
-    }
-
-    $URI = '{0}:{1}/{2}/services/systemcenter/vmm/VMNetworks' -f $PublicTenantAPIUrl,$Port,$Subscription
-    $VMNets = Invoke-RestMethod -Uri $URI -Headers $Headers -Method Get
+    process {
+        try {
+            if ($IgnoreSSL) {
+                Write-Warning 'IgnoreSSL switch defined. Certificate errors will be ignored!'
+                #Change Certificate Policy to ignore
+                $OriginalCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
+                IgnoreSLL
+            }
+            Write-Verbose 'Constructing Header'
+            $Headers = @{
+                    Authorization = "Bearer $Token"
+                    'x-ms-principal-id' = $UserId
+                    Accept = 'application/json'
+            }
+            $Headers | Out-String | Write-Debug
+            $URI = '{0}:{1}/{2}/services/systemcenter/vmm/VMNetworks' -f $PublicTenantAPIUrl,$Port,$Subscription
+            Write-Verbose "Constructed VM Networks URI: $URI"
+            
+            $VMNets = Invoke-RestMethod -Uri $URI -Headers $Headers -Method Get
     
-    foreach ($N in $VMNets.content.properties) {
-        if ($PSCmdlet.ParameterSetName -eq 'Name' -and $N.Name -ne $Name) {
-            continue
+            foreach ($N in $VMNets.value) {
+                if ($PSCmdlet.ParameterSetName -eq 'Name' -and $N.Name -ne $Name) {
+                    continue
+                }
+                $props = @{
+                    Name = $N.Name
+                    Description = $N.Description
+                    IsolationType = $N.IsolationType
+                    IPType = $N.CAIPAddressPoolType
+                }
+                $PSBoundParameters.Remove('Name') | out-null
+                $props += $PSBoundParameters
+                $props.Remove('Verbose')
+                $props.Remove('Debug')
+                $obj = New-Object -TypeName psobject -Property $props
+                $obj.PSObject.TypeNames.Insert(0,'WAP.VMNetwork')
+                Write-Output -InputObject $obj
+            }
         }
-        $Output = [pscustomobject]@{}
-        Add-Member -InputObject $Output -MemberType NoteProperty -Name Name -Value $N.Name -Force
-        Add-Member -InputObject $Output -MemberType NoteProperty -Name IsolationType -Value $N.IsolationType -Force
-        Add-Member -InputObject $Output -MemberType NoteProperty -Name Enabled -Value $N.Enabled -Force
-        Write-Output -InputObject $Output
+        catch {
+            Write-Error -Message $_.exception.message
+        }
+        finally {
+            #Change Certificate Policy to the original
+            if ($IgnoreSSL) {
+                [System.Net.ServicePointManager]::CertificatePolicy = $OriginalCertificatePolicy
+            }
+        }
     }
 }
 
