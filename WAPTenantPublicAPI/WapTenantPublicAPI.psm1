@@ -1,4 +1,4 @@
-﻿function IgnoreSLL {
+﻿function IgnoreSSL {
 	$Provider = New-Object Microsoft.CSharp.CSharpCodeProvider
 	$Compiler= $Provider.CreateCompiler()
 	$Params = New-Object System.CodeDom.Compiler.CompilerParameters
@@ -213,8 +213,7 @@ function Get-WAPSubscription {
                    ParameterSetName='Id')]
         [String] $Id,
 
-        [Parameter(Mandatory,
-                   ParameterSetName='List')]
+        [Parameter(ParameterSetName='List')]
         [Switch] $List,
 
         [Switch] $IgnoreSSL
@@ -225,7 +224,7 @@ function Get-WAPSubscription {
             Write-Warning 'IgnoreSSL switch defined. Certificate errors will be ignored!'
             #Change Certificate Policy to ignore
             $OriginalCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
-            IgnoreSLL
+            IgnoreSSL
         }
         Write-Verbose 'Constructing Header'
         $Headers = @{
@@ -239,52 +238,31 @@ function Get-WAPSubscription {
         Write-Verbose "Constructed Subscription URI: $URI"
 
         $Subscriptions = Invoke-RestMethod -Uri $URL -Headers $Headers -Method Get
-        $Subs = @()
-        if ($PSCmdlet.ParameterSetName -eq 'Name') {
-            $S = $Subscriptions | ?{$_.SubscriptionName -eq $Name}
-            if ($S -eq $null) {
-                throw "No subscriptions found matching specified name: $Name"
+        [void] $PSBoundParameters.Remove('Name')
+        [void] $PSBoundParameters.Remove('Id')
+        [void] $PSBoundParameters.Remove('Verbose')
+        [void] $PSBoundParameters.Remove('Debug')
+        [void] $PSBoundParameters.Remove('List')
+        [void] $PSBoundParameters.Remove('IgnoreSSL')
+
+        foreach ($S in $Subscriptions) {
+            if ($PSCmdlet.ParameterSetName -eq 'Name' -and $S.SubscriptionName -ne $Name) {
+                continue
             }
-            $Subs += $S
-        }
-        elseif ($PSCmdlet.ParameterSetName -eq 'Id') {
-            $S = $Subscriptions | ?{$_.SubscriptionId -eq $Id}
-            if ($S -eq $null) {
-                throw "No subscriptions found matching specified Id: $Id"
+            if ($PSCmdlet.ParameterSetName -eq 'Id' -and $S.SubscriptionId -ne $Id) {
+                continue
             }
-            $Subs += $S
-        }
-        else {
-            foreach ($S in $Subscriptions) {
-                $Subs += $S
+            $PSBoundParameters.GetEnumerator() | %{
+                Add-Member -InputObject $S -MemberType NoteProperty -Name $_.Key -Value $_.Value
             }
+            $S.Created = [datetime]$S.Created
+            Add-Member -InputObject $S -MemberType AliasProperty -Name 'Subscription' -Value SubscriptionId
+            $S.PSObject.TypeNames.Insert(0,'WAP.Subscription')
+            Write-Output -InputObject $S
         }
-        foreach ($S in $Subs) {
-            $props = [ordered]@{
-                SubscriptionID = $S.SubscriptionID
-                SubscriptionName = $S.SubscriptionName
-                AccountAdminLiveEmailId = $S.AccountAdminLiveEmailId
-                ServiceAdminLiveEmailId = $S.ServiceAdminLiveEmailId
-                CoAdminNames = $S.CoAdminNames
-                AddOnReferences = $S.AddOnReferences
-                AddOns = $S.AddOns
-                State = $S.State
-                QuotaSyncState = $S.QuotaSyncState
-                ActivationSyncState = $S.ActivationSyncState
-                PlanId = $S.PlanId
-            }
-            $props += $PSBoundParameters
-            $props.Remove('Verbose')
-            $props.Remove('Debug')
-            $props.Remove('IgnoreSSL')
-            $props.Remove('List')
-            $obj = New-Object -TypeName psobject -Property $props
-            $obj.PSObject.TypeNames.Insert(0,'WAP.Subscription')
-            Write-Output -InputObject $obj
-        }
-    }
+    } 
     catch {
-        Write-Error $_.exception.message
+        $_
     }
     finally {
         #Change Certificate Policy to the original
@@ -353,7 +331,7 @@ function Get-WAPGalleryVMRole {
                 Write-Warning 'IgnoreSSL switch defined. Certificate errors will be ignored!'
                 #Change Certificate Policy to ignore
                 $OriginalCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
-                IgnoreSLL
+                IgnoreSSL
             }
             Write-Verbose 'Constructing Header'
             $Headers = @{
@@ -365,17 +343,20 @@ function Get-WAPGalleryVMRole {
             $URI = '{0}:{1}/{2}/Gallery/GalleryItems/$/MicrosoftCompute.VMRoleGalleryItem?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription
             Write-Verbose "Constructed Gallery Item URI: $URI"
 
-            $GalleryItems = Invoke-RestMethod -Uri $URI -Headers $Headers -Method Get 
-            
-            $GIs = @()
-            foreach ($G in $GalleryItems) {
-                $GIs += $G.value
-            }
-            if ($PSCmdlet.ParameterSetName -eq 'Name') {
-                $GIs = $GIs | ?{$_.name -eq $Name}
-            }
-            foreach ($G in $GIs) {
-               
+            $GalleryItems = Invoke-RestMethod -Uri $URI -Headers $Headers -Method Get
+            [void] $PSBoundParameters.Remove('Name')
+            [void] $PSBoundParameters.Remove('Verbose')
+            [void] $PSBoundParameters.Remove('Debug')
+            [void] $PSBoundParameters.Remove('List')
+            [void] $PSBoundParameters.Remove('IgnoreSSL')
+
+            foreach ($G in $GalleryItems.value) {
+                if ($PSCmdlet.ParameterSetName -eq 'Name' -and $G.Name -ne $Name) {
+                    continue
+                }
+                $PSBoundParameters.GetEnumerator() | %{
+                    Add-Member -InputObject $G -MemberType NoteProperty -Name $_.Key -Value $_.Value
+                }
                 $GIResDEFUri = '{0}:{1}/{2}/{3}/?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription,$G.ResourceDefinitionUrl
                 Write-Verbose -Message "Acquiring ResDef from URI: $GIResDEFUri"
                 $ResDef = Invoke-RestMethod -Uri $GIResDEFUri -Headers $Headers -Method Get
@@ -383,29 +364,17 @@ function Get-WAPGalleryVMRole {
                 $GIViewDefUri = '{0}:{1}/{2}/{3}/?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription,$G.ViewDefinitionUrl
                 Write-Verbose -Message "Acquiring ViewDef from URI: $GIResDEFUri"
                 $ViewDef = Invoke-RestMethod -Uri $GIViewDefUri -Headers $Headers -Method Get
-                
-                $props = [ordered]@{
-                    Name           = $G.Name
-                    Publisher      = $G.Publisher
-                    PublisherLabel = $G.PublisherLabel
-                    Version        = $G.Version
-                    Description    = $G.Description
-                    Label          = $G.Label
-                    PublishDate    = [datetime]$G.PublishDate
-                    ResDef         = $ResDef
-                    ViewDef        = $ViewDef
-                }
-                $PSBoundParameters.Remove('Name') | out-null
-                $props += $PSBoundParameters
-                $props.Remove('Verbose')
-                $props.Remove('Debug')
-                $obj = New-Object -TypeName psobject -Property $props
-                $obj.PSObject.TypeNames.Insert(0,'WAP.GI.VMRole')
-                Write-Output -InputObject $obj
+
+                Add-Member -InputObject $G -MemberType NoteProperty -Name ResDef -Value $ResDef
+                Add-Member -InputObject $G -MemberType NoteProperty -Name ViewDef -Value $ViewDef
+
+                $G.PublishDate = [datetime]$G.PublishDate
+                $G.PSObject.TypeNames.Insert(0,$G.'odata.type')
+                Write-Output -InputObject $G 
             }
         }
         catch {
-            Write-Error -Message $_.exception.message
+            $_
         }
         finally {
             #Change Certificate Policy to the original
@@ -473,7 +442,7 @@ function Get-WAPVMRoleOSDisk {
                 Write-Warning 'IgnoreSSL switch defined. Certificate errors will be ignored!'
                 #Change Certificate Policy to ignore
                 $OriginalCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
-                IgnoreSLL
+                IgnoreSSL
             }
             Write-Verbose 'Constructing Header'
             $Headers = @{
@@ -496,30 +465,16 @@ function Get-WAPVMRoleOSDisk {
                     if ($I.enabled -eq $false) {
                         continue
                     }
-                    else {
-                        $props = [ordered]@{
-                            Name            = $I.Name
-                            Enabled         = $I.Enabled
-                            FamilyName      = $I.FamilyName
-                            Release         = $I.Release
-                            OperatingSystem = $I.OperatingSystem
-                            Tag             = $I.Tag
-                            AddedTime       = [datetime]$I.AddedTime
-                            VHDType         = $I.VHDType
-                        }
-                        $PSBoundParameters.Remove('ViewDef')
-                        $props += $PSBoundParameters
-                        $props.Remove('Verbose')
-                        $props.Remove('Debug')
-                        $obj = New-Object -TypeName psobject -Property $props
-                        $obj.PSObject.TypeNames.Insert(0,'WAP.GI.OSDisk')
-                        Write-Output -InputObject $obj
-                    }
+                    $I.AddedTime = [datetime] $I.AddedTime
+                    $I.ModifiedTime = [datetime] $I.ModifiedTime
+                    $I.ReleaseTime = [datetime] $I.ReleaseTime
+                    $I.PSObject.TypeNames.Insert(0,'WAP.GI.OSDisk')
+                    Write-Output -InputObject $I
                 }
             }                
         }
         catch {
-            Write-Error -Message $_.exception.message
+            $_
         }
         finally {
             #Change Certificate Policy to the original
@@ -588,7 +543,7 @@ function Get-WAPVMNetwork {
                 Write-Warning 'IgnoreSSL switch defined. Certificate errors will be ignored!'
                 #Change Certificate Policy to ignore
                 $OriginalCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
-                IgnoreSLL
+                IgnoreSSL
             }
             Write-Verbose 'Constructing Header'
             $Headers = @{
@@ -606,23 +561,12 @@ function Get-WAPVMNetwork {
                 if ($PSCmdlet.ParameterSetName -eq 'Name' -and $N.Name -ne $Name) {
                     continue
                 }
-                $props = @{
-                    Name = $N.Name
-                    Description = $N.Description
-                    IsolationType = $N.IsolationType
-                    IPType = $N.CAIPAddressPoolType
-                }
-                $PSBoundParameters.Remove('Name') | out-null
-                $props += $PSBoundParameters
-                $props.Remove('Verbose')
-                $props.Remove('Debug')
-                $obj = New-Object -TypeName psobject -Property $props
-                $obj.PSObject.TypeNames.Insert(0,'WAP.VMNetwork')
-                Write-Output -InputObject $obj
+                $N.PSObject.TypeNames.Insert(0,'WAP.VMNetwork')
+                Write-Output -InputObject $N
             }
         }
         catch {
-            Write-Error -Message $_.exception.message
+            $_
         }
         finally {
             #Change Certificate Policy to the original
@@ -634,7 +578,48 @@ function Get-WAPVMNetwork {
 }
 
 function New-WAPVMRoleParameterObject {
-    [cmdletbinding()]
+    <#
+    .SYNOPSIS
+    Generates VM Role Parameter Object.
+
+    .DESCRIPTION
+    Generates VM Role Parameter Object.
+
+    .PARAMETER VMRole
+    VM Role gallery item object acquired via Get-WAPGalleryVMRole
+
+    .PARAMETER OSDisk
+    OS Disk object acquired via Get-WAPVMRoleOSDisk
+
+    .PARAMETER VMRoleVMSize
+    Select one of the default VMRole sizing profiles ('Small','A7','ExtraSmall','Large','A6','Medium','ExtraLarge')
+
+    .PARAMETER VMNetwork
+    VM Network object acquired via Get-WAPVMNetwork
+
+    .PARAMETER Interactive
+    Run in interactive mode where you get prompted to provide values with parameters. 
+    In non-interactive mode this functions uses the defaults where provided and uses NULL for everything unknown.
+
+    .EXAMPLE
+    $creds = Get-Credential
+    $token = Get-WAPAdfsToken -Credential $creds -URL 'https://sts.domain.tld'
+    $Subscription = Get-WAPSubscription -Token $token -UserId $creds.UserName -PublicTenantAPIUrl https://api.domain.tld -Port 443 -Name 'MySub'
+    $GI = $Subscription | Get-WAPGalleryVMRole -Name MyVMRole
+    $OSDisk = $GI | Get-WAPVMRoleOSDisk | Sort-Object -Property AddedTime -Descending | Select-Object -First 1
+    $NW = $Subscription | Get-WAPVMNetwork -Name MyNetwork
+    $VMProps = New-WAPVMRoleParameterObject -VMRole $GI -OSDisk $OSDisk -VMRoleVMSize Large -VMNetwork $NW -Interactive
+
+    .EXAMPLE
+    $creds = Get-Credential
+    $token = Get-WAPAdfsToken -Credential $creds -URL 'https://sts.domain.tld'
+    $Subscription = Get-WAPSubscription -Token $token -UserId $creds.UserName -PublicTenantAPIUrl https://api.domain.tld -Port 443 -Name 'MySub'
+    $GI = $Subscription | Get-WAPGalleryVMRole -Name MyVMRole
+    $OSDisk = $GI | Get-WAPVMRoleOSDisk | Sort-Object -Property AddedTime -Descending | Select-Object -First 1
+    $NW = $Subscription | Get-WAPVMNetwork -Name MyNetwork
+    $VMProps = New-WAPVMRoleParameterObject -VMRole $GI -OSDisk $OSDisk -VMRoleVMSize Large -VMNetwork $NW
+    #>
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
         [Object] $VMRole,
@@ -651,6 +636,15 @@ function New-WAPVMRoleParameterObject {
 
         [Switch] $Interactive
     )
+    if (!($VMRole.pstypenames.Contains('MicrosoftCompute.VMRoleGalleryItem'))) {
+        throw 'Object bound to VMRole parameter is of the wrong type'
+    }
+    if (!($OSDisk.pstypenames.Contains('WAP.GI.OSDisk'))) {
+        throw 'Object bound to OSDisk parameter is of the wrong type'
+    }
+    if (!($VMNetwork.pstypenames.Contains('WAP.VMNetwork'))) {
+        throw 'Object bound to VMNetwork parameter is of the wrong type'
+    }
     $Sections = $VMRole.ViewDef.ViewDefinition.Sections
     $Categories = $Sections | %{$_.Categories}
     $ViewDefParams = $Categories | %{$_.Parameters}
@@ -721,137 +715,321 @@ function New-WAPVMRoleParameterObject {
 }
 
 function Get-WAPCloudService {
+    <#
+    .SYNOPSIS
+    Retrieves Cloudservice deployed to subscription from Azure Pack TenantPublic or Tenant API.
+
+    .DESCRIPTION
+    Retrieves Cloudservice deployed to subscription from Azure Pack TenantPublic or Tenant API.
+
+    .PARAMETER Token
+    Bearer token acquired via Get-WAPADFSToken or Get-WAPASPNetToken.
+
+    .PARAMETER UserId
+    The UserId used to get the Bearer token.
+
+    .EXAMPLE
+    $URL = 'https://publictenantapi.mydomain.com'
+    $creds = Get-Credential
+    $token = Get-WAPAdfsToken -Credential $creds -URL 'https://sts.adfs.com'
+    $Subscription = Get-WAPSubscription -Token $token -UserId $creds.UserName -PublicTenantAPIUrl $URL -Port 443 -Name 'MySubscription'
+    $Subscription | Get-WAPCloudService
+    #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param (
         [Parameter(ParameterSetName = 'List')]
         [Switch] $List,
 
         [Parameter(Mandatory,
-                   ValueFromPipeline,
+                   ValueFromPipelineByPropertyName,
                    ParameterSetName = 'Name')]
+        [Alias('CloudServiceName')]
         [String] $Name,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $Token,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $UserId,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $PublicTenantAPIUrl,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
+        [Alias('SubscriptionId')]
         [String] $Subscription,
 
-        [Int] $Port = 30006
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [Int] $Port = 30006,
+
+        [Switch] $IgnoreSSL
     )
-    begin {
-        $Headers = @{
-                Authorization = "Bearer $Token"
-                'x-ms-principal-id' = $UserId
-        }
-    }
     process {
-        $URI = '{0}:{1}/{2}/CloudServices?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription
-
-        Invoke-RestMethod -Uri $URI -Headers $Headers -Method Get | %{
-
-            if ($PSCmdlet.ParameterSetName -eq 'Name') {
-                if ($obj = ($_ | ?{$_.content.properties.Name -eq $Name}).content.properties) {
-                    Write-Output -InputObject $obj
-                }
+        try {
+            if ($IgnoreSSL) {
+                Write-Warning 'IgnoreSSL switch defined. Certificate errors will be ignored!'
+                #Change Certificate Policy to ignore
+                $OriginalCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
+                IgnoreSSL
             }
-            else {
-                $obj = $_.content.properties
-                Write-Output -InputObject $obj
+            Write-Verbose 'Constructing Header'
+            $Headers = @{
+                    Authorization = "Bearer $Token"
+                    'x-ms-principal-id' = $UserId
+                    Accept = 'application/json'
+            }
+            $Headers | Out-String | Write-Debug
+            $URI = '{0}:{1}/{2}/CloudServices?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription
+            Write-Verbose "Constructed CloudService URI: $URI"
+
+            $CloudServices = Invoke-RestMethod -Uri $URI -Headers $Headers -Method Get
+
+            [void] $PSBoundParameters.Remove('Name')
+            [void] $PSBoundParameters.Remove('List')
+            [void] $PSBoundParameters.Remove('Verbose')
+            [void] $PSBoundParameters.Remove('Debug')
+            [void] $PSBoundParameters.Remove('IgnoreSSL')
+
+            foreach ($C in $CloudServices.value) {
+                if ($PSCmdlet.ParameterSetName -eq 'Name' -and $C.Name -ne $Name) {
+                    continue
+                }
+                $PSBoundParameters.GetEnumerator() | %{
+                    Add-Member -InputObject $C -MemberType NoteProperty -Name $_.Key -Value $_.Value
+                }
+                Add-Member -InputObject $C -MemberType AliasProperty -Name CloudServiceName -Value Name
+                $C.PSObject.TypeNames.Insert(0,'WAP.CloudService')
+                Write-Output -InputObject $C
+            }
+        }
+        catch {
+            $_
+        }
+        finally {
+            #Change Certificate Policy to the original
+            if ($IgnoreSSL) {
+                [System.Net.ServicePointManager]::CertificatePolicy = $OriginalCertificatePolicy
             }
         }
     }
 }
 
 function New-WAPCloudService {
+    <#
+    .SYNOPSIS
+    Creates Cloudservice for subscription from Azure Pack TenantPublic or Tenant API.
+
+    .DESCRIPTION
+    Creates Cloudservice for subscription from Azure Pack TenantPublic or Tenant API.
+
+    .PARAMETER Token
+    Bearer token acquired via Get-WAPADFSToken or Get-WAPASPNetToken.
+
+    .PARAMETER UserId
+    The UserId used to get the Bearer token.
+
+    .EXAMPLE
+    $URL = 'https://publictenantapi.mydomain.com'
+    $creds = Get-Credential
+    $token = Get-WAPAdfsToken -Credential $creds -URL 'https://sts.adfs.com'
+    $Subscription = Get-WAPSubscription -Token $token -UserId $creds.UserName -PublicTenantAPIUrl $URL -Port 443 -Name 'MySubscription'
+    $Subscription | New-WAPCloudService -Name test
+    #>
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $Token,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $UserId,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $PublicTenantAPIUrl,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
+        [Alias('SubscriptionId')]
         [String] $Subscription,
 
         [Parameter(Mandatory,
-                   ValueFromPipeline)]
+                   ValueFromPipelineByPropertyName)]
+        [Alias('CloudServiceName')]
         [String] $Name,
 
-        [Int] $Port = 30006
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [Int] $Port = 30006,
+
+        [Switch] $IgnoreSSL
     )
-    begin {
-        $Headers = @{
-            Authorization = "Bearer $Token"
-            'x-ms-principal-id' = $UserId
-        }
-    }
     process {
-        $URI = '{0}:{1}/{2}/CloudServices?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription
-        $URI | Write-Verbose
-        $CloudServiceConfig = @{
-            Name = $Name
-            Label = $Name
-        } | ConvertTo-Json -Compress
-        $CloudService = Invoke-RestMethod -Uri $URI -Headers $Headers -Method Post -Body $CloudServiceConfig -ContentType 'application/json'
-        Write-Output -InputObject ([pscustomobject]$CloudService.entry.content.properties)
+        try {
+            if ($IgnoreSSL) {
+                Write-Warning 'IgnoreSSL switch defined. Certificate errors will be ignored!'
+                #Change Certificate Policy to ignore
+                $OriginalCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
+                IgnoreSSL
+            }
+            Write-Verbose 'Constructing Header'
+            $Headers = @{
+                    Authorization = "Bearer $Token"
+                    'x-ms-principal-id' = $UserId
+                    Accept = 'application/json'
+            }
+            $Headers | Out-String | Write-Debug
+            $URI = '{0}:{1}/{2}/CloudServices?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription
+            Write-Verbose "Constructed CloudService URI: $URI"
+
+            $CloudServiceConfig = @{
+                Name = $Name
+                Label = $Name
+            } | ConvertTo-Json -Compress
+
+            $CloudService = Invoke-RestMethod -Uri $URI -Headers $Headers -Method Post -Body $CloudServiceConfig -ContentType 'application/json'
+            $CloudService.PSObject.Properties.Remove('odata.metadata')
+            $CloudService.PSObject.TypeNames.Insert(0,'WAP.CloudService')
+            Write-Output -InputObject $CloudService
+        }
+        catch {
+            $_
+        }
+        finally {
+            #Change Certificate Policy to the original
+            if ($IgnoreSSL) {
+                [System.Net.ServicePointManager]::CertificatePolicy = $OriginalCertificatePolicy
+            }
+        }
     }
 }
 
 function Remove-WAPCloudService {
+    <#
+    .SYNOPSIS
+    Deletes Cloudservice from subscription from Azure Pack TenantPublic or Tenant API.
+
+    .DESCRIPTION
+    Deletes Cloudservice from subscription from Azure Pack TenantPublic or Tenant API.
+
+    .PARAMETER Token
+    Bearer token acquired via Get-WAPADFSToken or Get-WAPASPNetToken.
+
+    .PARAMETER UserId
+    The UserId used to get the Bearer token.
+
+    .EXAMPLE
+    $URL = 'https://publictenantapi.mydomain.com'
+    $creds = Get-Credential
+    $token = Get-WAPAdfsToken -Credential $creds -URL 'https://sts.adfs.com'
+    $Subscription = Get-WAPSubscription -Token $token -UserId $creds.UserName -PublicTenantAPIUrl $URL -Port 443 -Name 'MySubscription'
+    $Subscription | Remove-WAPCloudService -Name test
+
+    .EXAMPLE
+    $URL = 'https://publictenantapi.mydomain.com'
+    $creds = Get-Credential
+    $token = Get-WAPAdfsToken -Credential $creds -URL 'https://sts.adfs.com'
+    $Subscription = Get-WAPSubscription -Token $token -UserId $creds.UserName -PublicTenantAPIUrl $URL -Port 443 -Name 'MySubscription'
+    $Subscription | Get-WAPCloudService -Name Test | Remove-WAPCloudService -Force
+    #>
     [CmdletBinding(SupportsShouldProcess,
                    ConfirmImpact='High')]
     param (
         [Parameter(Mandatory,
-                   ValueFromPipeline,
-                   ParameterSetName = 'Name')]
+                   ValueFromPipelineByPropertyName)]
         [String] $Name,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $Token,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $UserId,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $PublicTenantAPIUrl,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
+        [Alias('SubscriptionId')]
         [String] $Subscription,
 
+        [Parameter(ValueFromPipelineByPropertyName)]
         [Int] $Port = 30006,
 
-        [Switch] $Force
+        [Switch] $Force,
+
+        [Switch] $IgnoreSSL
     )
-    begin {
-        $Headers = @{
-            Authorization = "Bearer $Token"
-            'x-ms-principal-id' = $UserId
-        }
-    }
     process {
-        $URI = '{0}:{1}/{2}/CloudServices?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription
-        $Exists = Invoke-RestMethod -Uri $URI -Method Get -Headers $Headers | ?{$_.content.properties.name -eq $name}
-        if ($Force -or $PSCmdlet.ShouldProcess($Name)) {
-            if ($Exists -ne $null) {
+        try {
+            if ($IgnoreSSL) {
+                Write-Warning 'IgnoreSSL switch defined. Certificate errors will be ignored!'
+                #Change Certificate Policy to ignore
+                $OriginalCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
+                IgnoreSSL
+            }
+            Write-Verbose 'Constructing Header'
+            $Headers = @{
+                    Authorization = "Bearer $Token"
+                    'x-ms-principal-id' = $UserId
+                    Accept = 'application/json'
+            }
+            $Headers | Out-String | Write-Debug
+            $URI = '{0}:{1}/{2}/CloudServices?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription
+            Write-Verbose "Constructed CloudService URI: $URI"
+
+            $CloudServices = Invoke-RestMethod -Uri $URI -Method Get -Headers $Headers
+            foreach ($C in $CloudServices.value) {
+                if ($C.Name -ne $Name) {
+                    continue
+                }
                 $RemURI = '{0}:{1}/{2}/CloudServices/{3}?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription,$Name
-                Invoke-RestMethod -Uri $RemURI -Method Delete -Headers $Headers
-            }    
+                Write-Verbose "Constructed Named CloudService URI: $RemURI"
+                if ($Force -or $PSCmdlet.ShouldProcess($Name)) {
+                    Invoke-RestMethod -Uri $RemURI -Method Delete -Headers $Headers | Out-Null
+                }
+            }
+        }
+        catch {
+            $_
+        }
+        finally {
+            #Change Certificate Policy to the original
+            if ($IgnoreSSL) {
+                [System.Net.ServicePointManager]::CertificatePolicy = $OriginalCertificatePolicy
+            }
         }
     }
 }
 
 function New-WAPVMRoleDeployment {
+    <#
+    .SYNOPSIS
+    Deploys VM Role to a Cloudservice using Azure Pack TenantPublic or Tenant API.
+
+    .DESCRIPTION
+    Deploys VM Role to a Cloudservice using Azure Pack TenantPublic or Tenant API.
+
+    .PARAMETER Token
+    Bearer token acquired via Get-WAPADFSToken or Get-WAPASPNetToken.
+
+    .PARAMETER UserId
+    The UserId used to get the Bearer token.
+
+    .EXAMPLE
+    $URL = 'https://publictenantapi.mydomain.com'
+    $creds = Get-Credential
+    $token = Get-WAPAdfsToken -Credential $creds -URL 'https://sts.adfs.com'
+    $Subscription = Get-WAPSubscription -Token $token -UserId $creds.UserName -PublicTenantAPIUrl $URL -Port 443 -Name 'MySubscription'
+    $Subscription | Remove-WAPCloudService -Name test
+    #>
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
@@ -860,81 +1038,115 @@ function New-WAPVMRoleDeployment {
         [Parameter(Mandatory)]
         [Object] $ParameterObject,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $Token,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $UserId,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
         [String] $PublicTenantAPIUrl,
 
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
+        [Alias('SubscriptionId')]
         [String] $Subscription,
 
-        [Parameter(Mandatory)]
-        [String] $CloudServiceName,
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
+        [Int] $Port = 30006,
 
-        [Int] $Port = 30006
+        [Switch] $IgnoreSSL,
+
+        [Parameter(Mandatory,
+                   ValueFromPipelineByPropertyName)]
+        [Alias('Name','VMRoleName')]
+        [String] $CloudServiceName
     )
-
-    $CloudServiceParams = $PSBoundParameters
-    [void] $CloudServiceParams.Remove('VMRole')
-    [void] $CloudServiceParams.Remove('ParameterObject')
-    [void] $CloudServiceParams.Remove('CloudServiceName')
-    [void] $CloudServiceParams.Add('Name',$CloudServiceName)
-    $CloudServiceParams | Out-String | Write-Verbose
-    $Headers = @{
-            Authorization = "Bearer $Token"
-            'x-ms-principal-id' = $UserId
-    }
-
-    #Test if cloudservice already exist
-    try {
-        if (Get-WAPCloudService @CloudServiceParams) {
-            throw "Cloud Service with name $CloudServiceName already exists"
+    process {
+        if (!($VMRole.pstypenames.Contains('MicrosoftCompute.VMRoleGalleryItem'))) {
+            throw 'Object bound to VMRole parameter is of the wrong type'
         }
-    }
-    catch {
-        Write-Error -Message $_.exception.message -ErrorAction Stop
-    }
 
-    #create cloudservice
-    try {
-        New-WAPCloudService @CloudServiceParams | Out-Null
-    }
-    catch {
-        Write-Error -Message $_.exception.message -ErrorAction Stop
-    }
+        $ErrorActionPreference = 'Stop'
+        $SUB = New-Object -TypeName psobject -Property $PSBoundParameters
+        $SUB.PSObject.TypeNames.Insert(0,'WAP.Subscription')
 
-    #Add ResDefConfig JSON to Dictionary
-    $ResDefConfig = New-Object 'System.Collections.Generic.Dictionary[String,Object]'
-    $ResDefConfig.Add('Version',$VMRole.version)
-    $ResDefConfig.Add('ParameterValues',($ParameterObject | ConvertTo-Json))
+        try {
+            if ($IgnoreSSL) {
+                Write-Warning 'IgnoreSSL switch defined. Certificate errors will be ignored!'
+                #Change Certificate Policy to ignore
+                $OriginalCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
+                IgnoreSSL
+            }
+                        
+            Write-Verbose -Message "Testing if Cloudservice $CloudServiceName exists"
+            if (!($SUB | Get-WAPCloudService)) {
+                Write-Verbose -Message "Creating Cloudservice $CloudServiceName as it does not yet exist"
+                $SUB | New-WAPCloudService | Out-Null
+                $New = $true
+            }
+            else {
+                $New = $false
+            }
+            
+            if (!$New) {
+                Write-Verbose -Message "Testing if VMRole with name $VMRoleName does not already exist"
+                if ($SUB | Get-WAPCloudService | Get-WAPVMRole) {
+                    throw "There is already a VMRole deployed to the CloudService $CloudServiceName. Because this function mimics portal experience, only one VM Role is allowed to exist per CloudService"
+                }  
+            } 
+            
+            #Add ResDefConfig JSON to Dictionary
+            $ResDefConfig = New-Object 'System.Collections.Generic.Dictionary[String,Object]'
+            $ResDefConfig.Add('Version',$VMRole.version)
+            $ResDefConfig.Add('ParameterValues',($ParameterObject | ConvertTo-Json))
 
-    # Set Gallery Item Payload Info
-    $GIPayload = @{
-        InstanceView = $null
-        Substate = $null
-        Name = $CloudServiceName
-        Label = $CloudServiceName
-        ProvisioningState = $null
-        ResourceConfiguration = $ResDefConfig
-        ResourceDefinition = $VMRole.ResDef
-    }
+            # Set Gallery Item Payload Info
+            $GIPayload = @{
+                InstanceView = $null
+                Substate = $null
+                Name = $CloudServiceName
+                Label = $CloudServiceName
+                ProvisioningState = $null
+                ResourceConfiguration = $ResDefConfig
+                ResourceDefinition = $VMRole.ResDef
+            }
 
-    # Convert Gallery Item Payload Info To JSON
-    $GIPayloadJSON = ConvertTo-Json $GIPayload -Depth 10
+            # Convert Gallery Item Payload Info To JSON
+            $GIPayloadJSON = ConvertTo-Json $GIPayload -Depth 10
 
-    $DeployUri = '{0}:{1}/{2}/CloudServices/{3}/Resources/MicrosoftCompute/VMRoles/?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription,$CloudServiceName
-    # Deploy Gallery Item VM Role
-    try {
-        $Deploy = Invoke-RestMethod -Uri $DeployUri -Headers $Headers -Method Post -Body $GIPayloadJSON -ContentType 'application/json'
-        Write-Output -InputObject ([pscustomobject]$Deploy.entry.content.properties)
-    }
-    catch {
-        Write-Error -Message 'Deployment Failure' -Exception $_.exception -ErrorAction Continue
-        Remove-WAPCloudService @CloudServiceParams -Force | Out-Null
+            # Deploy VM Role to cloudservice
+            Write-Verbose 'Constructing Header'
+            $Headers = @{
+                Authorization = "Bearer $Token"
+                'x-ms-principal-id' = $UserId
+                Accept = 'application/json'
+            }
+            $Headers | Out-String | Write-Debug
+            $URI = '{0}:{1}/{2}/CloudServices/{3}/Resources/MicrosoftCompute/VMRoles/?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription,$CloudServiceName
+            Write-Verbose "Constructed VMRole Deploy URI: $URI"
+
+            Write-Verbose "Starting deployment of VMRole $VMRoleName to CloudService $CloudServiceName"
+            $Deploy = Invoke-RestMethod -Uri $URI -Headers $Headers -Method Post -Body $GIPayloadJSON -ContentType 'application/json'
+            $Deploy.PSObject.TypeNames.Insert(0,'WAP.VMRole')
+            Write-Output $Deploy
+        }
+        catch {
+            if ($New) {
+                $SUB | Remove-WAPCloudService -Force
+            }
+            $_
+        }
+        finally {
+            #Change Certificate Policy to the original
+            if ($IgnoreSSL) {
+                [System.Net.ServicePointManager]::CertificatePolicy = $OriginalCertificatePolicy
+            }
+        }
     }
 }
 
@@ -967,6 +1179,7 @@ function Get-WAPVMRole {
     param (
         [Parameter(Mandatory,
                    ValueFromPipelineByPropertyName)]
+        [Alias('Name','VMRoleName')]
         [String] $CloudServiceName,
 
         [Parameter(Mandatory,
@@ -996,7 +1209,7 @@ function Get-WAPVMRole {
                 Write-Warning 'IgnoreSSL switch defined. Certificate errors will be ignored!'
                 #Change Certificate Policy to ignore
                 $OriginalCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
-                IgnoreSLL
+                IgnoreSSL
             }
             Write-Verbose 'Constructing Header'
             $Headers = @{
@@ -1008,55 +1221,14 @@ function Get-WAPVMRole {
             $URI = '{0}:{1}/{2}/CloudServices/{3}/Resources/MicrosoftCompute/VMRoles?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription,$CloudServiceName
             Write-Verbose "Constructed VMRole URI: $URI"
 
-            $VMRole = Invoke-RestMethod -Uri $URI -Headers $Headers -Method Get
-        
-            $VMRoleName = $VMRole.value.Name
-            $URI = '{0}:{1}/{2}/CloudServices/{3}/Resources/MicrosoftCompute/VMRoles/{4}/VMs?api-version=2013-03' -f $PublicTenantAPIUrl,$Port,$Subscription,$CloudServiceName,$VMRoleName
-            Write-Verbose "Constructed VMRole VMs URI: $URI"
-
-            [PSObject[]] $VMs = @()
-            Invoke-RestMethod -Uri $URI -Headers $Headers -Method Get | %{
-                $value = $_.value
-                $IPs = foreach ($IP in $value.connectToAddresses) {
-                    $IP = @{
-                        IPAddress = $IP.IPAddress
-                        Network   = $IP.NetworkName
-                    }
-                    New-Object -TypeName psobject -Property $IP
-                }
-                $vmparams = [ordered]@{
-                    Id = $value.Id
-                    ComputerName = $value.ComputerName
-                    RuntimeState = $value.RuntimeState
-                    IPAddresses  = $IPs
-                }
-                $VMs += (New-Object -TypeName psobject -Property $vmparams)
+            $Roles = Invoke-RestMethod -Uri $URI -Headers $Headers -Method Get
+            foreach ($R in $Roles.value) {
+                $R.PSObject.TypeNames.Insert(0,'WAP.VMRole')
+                Write-Output -InputObject $R
             }
-
-            $params = [ordered]@{
-                Name = $VMRoleName
-                Label = $VMRole.value.Label
-                ProvisioningState    = $VMRole.value.ProvisioningState
-                ParameterValues      = $VMRole.value.ResourceConfiguration.ParameterValues | ConvertFrom-Json
-                GalleryItemName      = $VMRole.value.ResourceDefinition.Name
-                GalleryItemVersion   = $VMRole.value.ResourceDefinition.Version
-                GalleryItemPublisher = $VMRole.value.ResourceDefinition.Publisher
-                StateMessages        = $VMRole.value.Substate.VMRoleMessages
-                CurrentInstanceCount = $VMRole.value.InstanceView.InstanceCount
-                MaxInstanceCount     = $VMRole.value.InstanceView.ResolvedResourceDefinition.IntrinsicSettings.ScaleOutSettings.MaximumInstanceCount
-                MinInstanceCount     = $VMRole.value.InstanceView.ResolvedResourceDefinition.IntrinsicSettings.ScaleOutSettings.MinimumInstanceCount
-                VMSize               = $VMRole.value.InstanceView.ResolvedResourceDefinition.IntrinsicSettings.HardwareProfile.VMSize
-                VMs                  = $VMs
-            }
-            $params += $PSBoundParameters
-            $params.Remove('Verbose')
-            $params.Remove('Debug')
-            $obj = New-Object -TypeName psobject -Property $params
-            $obj.PSObject.TypeNames.Insert(0,'WAP.VMRole')
-            Write-Output -InputObject $obj
         }
         catch {
-            Write-Error -Message $_.exception.message
+            $_
         }
         finally {
             #Change Certificate Policy to the original

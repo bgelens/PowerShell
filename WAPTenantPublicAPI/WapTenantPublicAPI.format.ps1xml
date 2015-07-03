@@ -26,9 +26,9 @@
         </View>
 
         <View>
-            <Name>WAP.GI.VMRole</Name>
+            <Name>MicrosoftCompute.VMRoleGalleryItem</Name>
             <ViewSelectedBy>
-                <TypeName>WAP.GI.VMRole</TypeName>
+                <TypeName>MicrosoftCompute.VMRoleGalleryItem</TypeName>
             </ViewSelectedBy>
              <ListControl>
                 <ListEntries>
@@ -129,6 +129,29 @@
                 </ListEntries>
             </ListControl>
         </View>
-        
+
+        <View>
+            <Name>WAP.CloudService</Name>
+            <ViewSelectedBy>
+                <TypeName>WAP.CloudService</TypeName>
+            </ViewSelectedBy>
+             <ListControl>
+                <ListEntries>
+                    <ListEntry>
+                        <ListItems>
+                            <ListItem>
+                                <PropertyName>Name</PropertyName>
+                            </ListItem>
+                            <ListItem>
+                                <PropertyName>Label</PropertyName>
+                            </ListItem>
+                            <ListItem>
+                                <PropertyName>ProvisioningState</PropertyName>
+                            </ListItem>
+                        </ListItems>
+                    </ListEntry>
+                </ListEntries>
+            </ListControl>
+        </View>        
     </ViewDefinitions>
 </Configuration>
